@@ -10,7 +10,7 @@ import (
 
 // Decodable defines the interface for support ssz decoding.
 type Decodable interface {
-	DecodeSSZ(io.Reader) error
+	DecodeSSZ(io.Reader) (uint32, error)
 }
 
 // Decode decodes data read from r and output it into the object pointed by pointer val.
@@ -41,8 +41,13 @@ func decode(r io.Reader, val interface{}) error {
 	return nil
 }
 
+var decodableType = reflect.TypeOf((*Decodable)(nil)).Elem()
+
 func makeDecoder(typ reflect.Type) (dec decoder, err error) {
 	kind := typ.Kind()
+	if typ.Implements(decodableType) {
+		return decodeDecodableInterface, nil
+	}
 	switch {
 	case kind == reflect.Bool:
 		return decodeBool, nil
@@ -141,6 +146,11 @@ func decodeBytes(r io.Reader, val reflect.Value) (uint32, error) {
 	}
 	val.SetBytes(b)
 	return lengthBytes + size, nil
+}
+
+func decodeDecodableInterface(r io.Reader, val reflect.Value) (uint32, error) {
+	di := val.Interface().(Decodable)
+	return di.DecodeSSZ(r)
 }
 
 func decodeByteArray(r io.Reader, val reflect.Value) (uint32, error) {

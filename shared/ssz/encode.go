@@ -1,6 +1,7 @@
 package ssz
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -73,8 +74,13 @@ func (w *encbuf) toWriter(out io.Writer) error {
 	return err
 }
 
+var encodableType = reflect.TypeOf((*Encodable)(nil)).Elem()
+
 func makeEncoder(typ reflect.Type) (encoder, encodeSizer, error) {
 	kind := typ.Kind()
+	if typ.Implements(encodableType) {
+		return makeEncodableInterfaceEncoder()
+	}
 	switch {
 	case kind == reflect.Bool:
 		return encodeBool, func(reflect.Value) (uint32, error) { return 1, nil }, nil
@@ -159,6 +165,30 @@ func makeBytesEncoder() (encoder, encodeSizer, error) {
 			return 0, errors.New("bytes oversize")
 		}
 		return lengthBytes + uint32(len(val.Bytes())), nil
+	}
+	return encoder, encodeSizer, nil
+}
+
+func makeEncodableInterfaceEncoder() (encoder, encodeSizer, error) {
+	encoder := func(val reflect.Value, w *encbuf) error {
+		i := val.Interface().(Encodable)
+		sz, err := i.EncodeSSZSize()
+		if err != nil {
+			return err
+		}
+		buf := make([]byte, sz)
+		writableBuf := bytes.NewBuffer(buf)
+		i.EncodeSSZ(writableBuf)
+		w.str = append(w.str, buf...)
+		return nil
+	}
+	encodeSizer := func(val reflect.Value) (uint32, error) {
+		i := val.Interface().(Encodable)
+		sz, err := i.EncodeSSZSize()
+		if err != nil {
+			return 0, err
+		}
+		return sz, nil
 	}
 	return encoder, encodeSizer, nil
 }

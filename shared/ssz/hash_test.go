@@ -16,6 +16,21 @@ type merkleHashTest struct {
 	output, error string
 }
 
+type hashableInterfaceTest struct {
+	val [4]byte
+}
+
+func (h hashableInterfaceTest) TreeHashSSZ() ([32]byte, error) {
+	var outHash [32]byte
+	a := append([]byte{
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00}, h.val[:]...)
+	copy(outHash[:], a)
+	return outHash, nil
+}
+
 // Notice: spaces in the output string will be ignored.
 var hashTests = []hashTest{
 	// boolean
@@ -118,6 +133,11 @@ var hashTests = []hashTest{
 		{P: &simpleStruct{B: 2, A: 1}, V: 0},
 		{P: &simpleStruct{B: 4, A: 3}, V: 1},
 	}, output: "4AC9B9E64A067F6C007C3FE8116519D86397BDA1D9FBEDEEDF39E50D132669C7"},
+
+	// hashable
+	{val: hashableInterfaceTest{
+		val: [4]byte{0x00, 0x02, 0x04, 0x06},
+	}, output: "0000000000000000000000000000000000000000000000000000000000020406"},
 
 	// error: nil pointer
 	{val: nil, error: "hash error: nil is not supported for input type <nil>"},

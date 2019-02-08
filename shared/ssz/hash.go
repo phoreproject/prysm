@@ -51,14 +51,21 @@ func newHashError(msg string, typ reflect.Type) *hashError {
 	return &hashError{msg, typ}
 }
 
+var hashableType = reflect.TypeOf((*Hashable)(nil)).Elem()
+
 func makeHasher(typ reflect.Type) (hasher, error) {
+	if typ.Implements(hashableType) {
+		return hashableInterfaceEncoding, nil
+	}
+	isEncodable := typ.Implements(encodableType)
 	kind := typ.Kind()
 	switch {
 	case kind == reflect.Bool ||
 		kind == reflect.Uint8 ||
 		kind == reflect.Uint16 ||
 		kind == reflect.Uint32 ||
-		kind == reflect.Uint64:
+		kind == reflect.Uint64 ||
+		isEncodable:
 		return getEncoding, nil
 	case kind == reflect.Slice && typ.Elem().Kind() == reflect.Uint8 ||
 		kind == reflect.Array && typ.Elem().Kind() == reflect.Uint8:
@@ -97,6 +104,15 @@ func hashedEncoding(val reflect.Value) ([]byte, error) {
 	}
 	output := hashutil.Hash(encoding)
 	return output[:], nil
+}
+
+func hashableInterfaceEncoding(val reflect.Value) ([]byte, error) {
+	h := val.Interface().(Hashable)
+	hash, err := h.TreeHashSSZ()
+	if err != nil {
+		return nil, err
+	}
+	return hash[:], nil
 }
 
 func makeSliceHasher(typ reflect.Type) (hasher, error) {

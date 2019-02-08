@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"strings"
 	"testing"
 )
@@ -17,6 +18,19 @@ type encSizeTest struct {
 	val   interface{}
 	size  uint32
 	error string
+}
+
+type encEncodableTest struct {
+	i [4]byte
+}
+
+func (e *encEncodableTest) EncodeSSZ(w io.Writer) error {
+	_, err := w.Write(e.i[:])
+	return err
+}
+
+func (e *encEncodableTest) EncodeSSZSize() (uint32, error) {
+	return 4, nil
 }
 
 // Notice: spaces in the output string will be ignored.
@@ -121,6 +135,9 @@ var encodeTests = []encTest{
 		{P: &simpleStruct{B: 2, A: 1}, V: 0},
 		{P: &simpleStruct{B: 4, A: 3}, V: 1},
 	}, output: "18000000 08000000 03000000 0200 01 00 08000000 03000000 0400 03 01"},
+
+	// encodable
+	{val: &encEncodableTest{i: [4]byte{0x00, 0x00, 0x00, 0x00}}, output: "00000000"},
 
 	// error: nil pointer
 	{val: nil, error: "encode error: nil is not supported for input type <nil>"},

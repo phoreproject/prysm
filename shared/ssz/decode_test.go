@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"reflect"
 	"testing"
 )
@@ -13,6 +14,20 @@ type decodeTest struct {
 	ptr   interface{}
 	value interface{}
 	error string
+}
+
+type decodableFuncTest struct {
+	i [4]byte
+}
+
+func (dft *decodableFuncTest) DecodeSSZ(r io.Reader) (uint32, error) {
+	var b [4]byte
+	n, err := r.Read(b[:])
+	if err != nil {
+		return 0, err
+	}
+	dft.i = b
+	return uint32(n), nil
 }
 
 // Notice: spaces in the input string will be ignored.
@@ -131,6 +146,9 @@ var decodeTests = []decodeTest{
 			{P: &simpleStruct{B: 4, A: 3}, V: 1},
 		},
 	},
+
+	// decodable interface
+	{input: "00000000", ptr: new(decodableFuncTest), value: decodableFuncTest{[4]byte{0x00, 0x00, 0x00, 0x00}}},
 
 	// error: nil target
 	{input: "00", ptr: nil, value: nil, error: "decode error: cannot decode into nil for output type <nil>"},
