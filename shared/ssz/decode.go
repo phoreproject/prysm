@@ -45,8 +45,8 @@ var decodableType = reflect.TypeOf((*Decodable)(nil)).Elem()
 
 func makeDecoder(typ reflect.Type) (dec decoder, err error) {
 	kind := typ.Kind()
-	if typ.Implements(decodableType) {
-		return decodeDecodableInterface, nil
+	if kind == reflect.Ptr && typ.Implements(decodableType) {
+		return makeDecodableInterfaceDecoder(typ)
 	}
 	switch {
 	case kind == reflect.Bool:
@@ -148,9 +148,22 @@ func decodeBytes(r io.Reader, val reflect.Value) (uint32, error) {
 	return lengthBytes + size, nil
 }
 
-func decodeDecodableInterface(r io.Reader, val reflect.Value) (uint32, error) {
-	di := val.Interface().(Decodable)
-	return di.DecodeSSZ(r)
+func makeDecodableInterfaceDecoder(typ reflect.Type) (decoder, error) {
+	elemType := typ.Elem()
+	decoder := func(r io.Reader, val reflect.Value) (uint32, error) {
+		newVal := val
+		if val.IsNil() {
+			newVal = reflect.New(elemType)
+		}
+		di := newVal.Interface().(Decodable)
+		n, err := di.DecodeSSZ(r)
+		if err != nil {
+			return n, err
+		}
+		val.Set(newVal)
+		return n, nil
+	}
+	return decoder, nil
 }
 
 func decodeByteArray(r io.Reader, val reflect.Value) (uint32, error) {

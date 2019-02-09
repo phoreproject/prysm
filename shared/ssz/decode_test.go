@@ -148,7 +148,7 @@ var decodeTests = []decodeTest{
 	},
 
 	// decodable interface
-	{input: "00000000", ptr: new(decodableFuncTest), value: decodableFuncTest{[4]byte{0x00, 0x00, 0x00, 0x00}}},
+	{input: "00000000", ptr: new(*decodableFuncTest), value: &decodableFuncTest{[4]byte{0x00, 0x00, 0x00, 0x00}}},
 
 	// error: nil target
 	{input: "00", ptr: nil, value: nil, error: "decode error: cannot decode into nil for output type <nil>"},
